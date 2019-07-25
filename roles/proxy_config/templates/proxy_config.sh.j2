@@ -1,0 +1,16 @@
+{% if proxy_config.do_proxy|bool %}
+export PROXY_URL={{ proxy_config.proxy_addr }}
+export https_proxy={{ proxy_config.proxy_addr }}
+export HTTPS_PROXY={{ proxy_config.proxy_addr }}
+export http_proxy={{ proxy_config.proxy_addr }}
+export HTTP_PROXY={{ proxy_config.proxy_addr }}
+export AWS_CA_BUNDLE={{ proxy_config.awsca_path }}
+{% else %}
+#export PROXY_URL={{ proxy_config.proxy_addr }}
+#export https_proxy={{ proxy_config.proxy_addr }}
+#export HTTPS_PROXY={{ proxy_config.proxy_addr }}
+#export http_proxy={{ proxy_config.proxy_addr }}
+#export HTTP_PROXY={{ proxy_config.proxy_addr }}
+#export AWS_CA_BUNDLE={{ proxy_config.awsca_path }}
+{% endif %}
+export NO_PROXY={{ proxy_config.aws_noproxy }}

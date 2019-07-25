@@ -8,18 +8,9 @@
 #        state=present
 #        groups="{{ kafka.user_groups | join(',') }}"
 
-- name: set kafka installation directory fact
-  set_fact: kafka_installation_dir=kafka-{{ kafka.version }}
-
-- name: set kafka archive fact
-  set_fact: kafka_archive=kafka_2.11-{{ kafka.version }}.tgz
-
-- name: set kafka download location fact
-  set_fact: kafka_download={{ kafka.download_location }}/{{ kafka.version }}/{{ kafka_archive }}
-
 - name: create install directory
   file:
-    path: "{{ install_dir }}/{{ kafka_installation_dir }}"
+    path: "{{ install_dir }}/{{ kafka.kafka_install_dir }}"
     state: directory
 #    owner: "{{ kafka.user }}"
 #    group: "{{ kafka.user }}"
@@ -27,7 +18,7 @@
 
 - name: create log directory
   file:
-    path: "{{ install_dir }}/{{ kafka_installation_dir }}/logs"
+    path: "{{ install_dir }}/{{ kafka.kafka_install_dir }}/logs"
     state: directory
 #    owner: "{{ kafka.user }}"
 #    group: "{{ kafka.user }}"
@@ -42,16 +33,27 @@
 #  become: true
 
 - debug:
-     msg: "Downloading kafka {{ kafka_download }}"
+    msg: "Downloading kafka {{ kafka.download_location }}/{{ kafka.kafka_archive }}"
 
 - name: download kafka
-  get_url: url="{{ kafka_download }}" dest="{{ install_temp_dir }}/{{ kafka_archive }}"
+  get_url: 
+    url: "{{ kafka.download_location }}/{{ kafka.kafka_archive }}" 
+    dest: "{{ install_temp_dir }}/{{ kafka.kafka_archive }}"
+  register: get_url_result
+  until: get_url_result is succeeded
+  retries: "{{ download_retries }}"
+  delay: 10
 
 - name: unarchive to the install directory
-  shell: "tar -xvf {{ install_temp_dir }}/{{ kafka_archive }} --strip 1 --directory {{ install_dir }}/{{ kafka_installation_dir }}"
+  unarchive:
+    src: "{{ install_temp_dir }}/{{ kafka.kafka_archive }}"
+    dest: "{{ install_dir }}/{{ kafka.kafka_install_dir }}"
+    remote_src: yes
+    extra_opts: 
+      - --strip-components=1
 
 - name: set kafka configuration
-  template: src="server.properties.j2" dest="{{ install_dir }}/{{ kafka_installation_dir }}/config/server.properties"
+  template: src="server.properties.j2" dest="{{ install_dir }}/{{ kafka.kafka_install_dir }}/config/server.properties"
 
 # Environment setup.
 - name: add kafka profile to startup
@@ -60,18 +62,70 @@
     dest: /etc/profile.d/kafka-profile.sh
     mode: 0644
 
-
-##
 # Install KafkaT
+- name: enable rhel-server-optional repo
+  ini_file:
+    dest: /etc/yum.repos.d/redhat-rhui.repo
+    section: rhui-REGION-rhel-server-optional
+    option: enabled
+    value: "1"
+  #yum_repository:
+  #  name: rhui-REGION-rhel-server-optional
+  #  description: Red Hat Enterprise Linux Server 7 Optional (RPMs)
+  #  mirrorlist: https://rhui2-cds01.REGION.aws.ce.redhat.com/pulp/mirror/content/dist/rhel/rhui/server/7/$releasever/$basearch/optional/os
+  #  enabled: yes
+  #  gpgcheck: 1
+  #  gpgkey: file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
+  # rhsm_repository:
+  #   name: rhui-REGION-rhel-server-optional
+  #   state: enabled
 
 - name: install KafkaT dependencies
-  shell:
-     yum install -y ruby-devel rubygems make automake gcc gcc-c++ kernel-devel
+  package:
+    name: '{{ item }}'
+    state: present
+    update_cache: yes
+  with_items:
+    - ruby-devel
+    - rubygems
+    - make
+    - automake
+    - gcc
+    - gcc-c++
+    - kernel-devel
 
-- name: install KafkaT
-  shell:
-     gem install kafkat --source https://rubygems.org --no-ri --no-rdoc
+- name: disable rhel-server-optional repo
+  ini_file:
+    dest: /etc/yum.repos.d/redhat-rhui.repo
+    section: rhui-REGION-rhel-server-optional
+    option: enabled
+    value: "0"
 
+- name: yum-clean-metadata
+  command: yum clean metadata
+  args:
+    warn: no
+
+- name: install KafkaT asyncronous
+  gem:
+    name: kafkat
+    repository: https://rubygems.org
+    state: present
+    build_flags: 
+      - "--no-ri"
+      - "--no-rdoc"
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/root/.gem/ruby/bin"
+  async: 1000
+  poll: 5
+  register: kafka_sleeper
+
+- name: check KafkaT install asynchronously
+  async_status:
+    jid: "{{ kafka_sleeper.ansible_job_id }}"
+  register: job_result
+  until: job_result.finished
+  retries: 30
 
 - name: set KafkaT configuration
   template: src="kafkatcfg.j2" dest="/etc/kafkatcfg"

@@ -2,17 +2,28 @@
 # this is required mostly when these
 # scripts are mainly used to update
 # Enterprise Gateway deployment
+- name: Create group for Anaconda
+  group:
+    name: "{{ anaconda.group }}"
+    system: yes
+    state: present
+
+- name: Add "{{ default_username }}" to group anaconda
+  user:
+    name: "{{ default_username }}"
+    groups: "{{ anaconda.group }}"
+    append: yes
+
 - name: create install dir
   file: path="{{ install_dir }}" state=directory
 
 - name: create temporary install dir
   file: path="{{ install_temp_dir }}" state=directory
-#
 
 - name: clean previous anaconda deployments
   file:
     state: absent
-    path: "{{ install_dir }}/anaconda/"
+    path: "{{ install_dir }}/{{ anaconda.anaconda_install_dir }}/"
 
 - name: clean previous anaconda deployments (python 2)
   file:
@@ -25,23 +36,36 @@
     path: "{{ install_dir }}/anaconda3/"
 
 - name: install bzip2
-  shell:
-     yum install -y unzip bzip2
-
-- name: set anaconda distribution fact
-  set_fact: anaconda_install_file=Anaconda{{ python_version }}-{{ anaconda.version }}-Linux-x86_64.sh
+  package:
+    name: '{{ item }}'
+    state: present
+    update_cache: yes
+  loop:
+    - unzip
+    - bzip2
 
 - debug:
-     msg: "Downloading https://repo.continuum.io/archive/{{ anaconda_install_file }}"
+    msg: "Downloading {{ anaconda.download_location }}/{{ anaconda.anaconda_install_file }}"
 
 - name: download anaconda package
-  shell: "curl -L https://repo.continuum.io/archive/{{ anaconda_install_file }} --output {{ install_temp_dir }}/{{ anaconda_install_file }}"
-#  get_url:
-#     url: "https://repo.continuum.io/archive/{{ anaconda_install_file }}"
-#     dest: "{{ install_temp_dir }}/{{ anaconda_install_file }}"
+  get_url:
+    url: "{{ anaconda.download_location }}/{{ anaconda.anaconda_install_file }}"
+    dest: "{{ install_temp_dir }}/{{ anaconda.anaconda_install_file }}"
+  register: get_url_result
+  until: get_url_result is succeeded
+  retries: "{{ download_retries }}"
+  delay: 10
 
 - name: install anaconda package
-  shell: "bash {{ install_temp_dir }}/{{ anaconda_install_file }} -b -p {{ install_dir }}/anaconda"
+  shell: "bash {{ install_temp_dir }}/{{ anaconda.anaconda_install_file }} -b -p {{ install_dir }}/{{ anaconda.anaconda_install_dir }}"
+
+- name: Change group and permissions on anaconda directory
+  file:
+    path: "{{ install_dir }}/{{ anaconda.anaconda_install_dir }}"
+    state: directory
+    recurse: yes
+    group: anaconda
+    mode: 'g+w'
 
 # Environment setup.
 - name: Add anaconda_env to startup
@@ -50,3 +74,43 @@
     dest: /etc/profile.d/anaconda-profile.sh
     mode: 0644
   when: anaconda.update_path
+
+- name: Create directory /usr/local/bin
+  file:
+    path: '/usr/local/bin'
+    state: directory
+    mode: 0755
+  become: yes
+
+- name: Template jupyter config on master
+  become: yes
+  become_user: "{{ default_username }}"
+  shell: "{{ install_dir }}/{{ anaconda.anaconda_install_dir }}/bin/jupyter notebook --generate-config -y"
+  when: inventory_hostname in groups['master']
+
+- name: Update IP on jupyter master config
+  lineinfile:
+    path: /home/{{ default_username }}/.jupyter/jupyter_notebook_config.py
+    regexp: '^c.NotebookApp.ip = '
+    insertafter: '^#c.NotebookApp.ip ='
+    line: "c.NotebookApp.ip = '{{ hostvars[ lookup('env','HOSTNAME') ]['ansible_default_ipv4']['address'] }}'"
+  when: inventory_hostname in groups['master']
+
+- name: set jupyter notebook password
+  lineinfile:
+    path: /home/{{ default_username }}/.jupyter/jupyter_notebook_config.py  
+    regexp: '^c.NotebookApp.password = '   
+    insertafter: '^#c.NotebookApp.password = '
+    line: "c.NotebookApp.password = u'sha1:cafdd9553de3:ed339254af22384dbbcbfd0adccd308fa3c69cce'"
+  when: inventory_hostname in groups['master']
+
+- name: Update certifi
+  command: "/usr/local/bin/proxyfix.py --cert_path {{ ca_path[ansible_os_family] }} --pip --requests"
+  when: proxy_config.do_proxy|bool
+
+- name: Install findspark
+  command: "{{ install_dir }}/{{ anaconda.anaconda_install_dir }}/bin/pip install findspark"
+
+- name: Update certifi
+  command: "/usr/local/bin/proxyfix.py --cert_path {{ ca_path[ansible_os_family] }} --pip --requests"
+  when: proxy_config.do_proxy|bool

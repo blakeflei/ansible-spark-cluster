@@ -47,15 +47,52 @@
 
  - name: generate SSH keys for elyra user
    local_action: shell ssh-keygen -t rsa -b 4096 -f /tmp/{{ notebook.user }}_id_rsa -q -N ""
-   run_once: true
+   when: ansible_hostname == groups.master[0]
 
- - name: copy private ssh key to node
+ - name: chmod file
+   file:
+     path: "/tmp/{{ notebook.user }}_id_rsa"
+     owner: "{{ notebook.user }}"
+     group: "{{ notebook.user }}"
+     mode: 0755
+   when: ansible_hostname == groups.master[0]
+   become: yes
+   become_user: root
+
+ - name: chmod remote_tmp for all nodes
+   file:
+     path: /home/{{ default_username }}/.ansible/tmp
+     state: directory
+     recurse: yes
+     mode: 0755
+
+ - name: Transfer private keys from headnode
+   synchronize:
+     src: "/tmp/{{ notebook.user }}_id_rsa"
+     dest: "/tmp/{{ notebook.user }}_id_rsa"
+     mode: push
+   delegate_to: '{{ groups.master[0] }}'
+   become: yes
+   become_user: "{{ default_username }}"
+   when: ansible_hostname != groups.master[0]
+
+ - name: copy private ssh key to user
    copy:
      src: "/tmp/{{ notebook.user }}_id_rsa"
      dest: "/home/{{ notebook.user }}/.ssh/id_rsa"
      owner: "{{ notebook.user }}"
      group: "{{ notebook.user }}"
      mode: 0600
+
+ - name: Transfer public keys from headnode
+   synchronize:
+     src: "/tmp/{{ notebook.user }}_id_rsa.pub"
+     dest: "/tmp/{{ notebook.user }}_id_rsa.pub"
+     mode: push 
+   delegate_to: '{{ groups.master[0] }}'
+   become: yes
+   become_user: "{{ default_username }}"
+   when: ansible_hostname != groups.master[0]
 
  - name: copy public ssh key to node
    copy:
@@ -64,6 +101,13 @@
      owner: "{{ notebook.user }}"
      group: "{{ notebook.user }}"
      mode: 0644
+
+ - name: chmod private key on remote hosts
+   file:
+     path: "/home/{{ notebook.user }}/.ssh/id_rsa.pub"
+     owner: "{{ notebook.user }}"
+     group: "{{ notebook.user }}"
+     mode: 0600
 
  - name: add SSH key to authorized users
    authorized_key:
@@ -79,7 +123,7 @@
 
  # install elyra
  - name: pip install elyra
-   shell: "{{ pip }} install --upgrade jupyter_enterprise_gateway=={{ notebook.gateway_version }}"
+   shell: "{{ notebook_pip }} install --upgrade jupyter_enterprise_gateway=={{ notebook.gateway_version }}"
    when: (inventory_hostname in groups['master'])
 
  # finish other elyra config (e.g. log folders, startup script utility, etc)
@@ -95,9 +139,17 @@
      owner: "{{ notebook.user }}"
      group: "{{ notebook.user }}"
      mode: 0755
-   become_user: "{{ notebook.user }}"
+   become: yes #_user: "{{ notebook.user }}"
+   become_user: root
    ignore_errors: yes
    when: (inventory_hostname in groups['master'])
+
+ - name: chmod remote_tmp for all nodes
+   file:
+     path: /home/{{ notebook.user }}/.ansible/tmp
+     state: directory
+     recurse: yes
+     mode: 0755
 
  - name: create log directory for elyra
    file:
@@ -106,17 +158,19 @@
      owner: "{{ notebook.user }}"
      group: "{{ notebook.user }}"
      mode: 0755
+   become: yes
    become_user: "{{ notebook.user }}"
    ignore_errors: yes
    when: (inventory_hostname in groups['master'])
 
  - name: create runtime directory for elyra
    file:
-    path: "{{ notebook.gateway_runtime_directory }}"
-    state: directory
-    owner: "{{ notebook.user }}"
-    group: "{{ notebook.user }}"
-    mode: 0755
+     path: "{{ notebook.gateway_runtime_directory }}"
+     state: directory
+     owner: "{{ notebook.user }}"
+     group: "{{ notebook.user }}"
+     mode: 0755
+   become: yes
    become_user: "{{ notebook.user }}"
    ignore_errors: yes
    when: (inventory_hostname in groups['master'])
@@ -133,12 +187,12 @@
  # copy elyra kernel specs
  # https://github.com/jupyter/enterprise_gateway/releases/download/v2.0.0-beta.1/jupyter_enterprise_gateway_kernelspecs-2.0.0.b1.tar.gz
 
- - name: set kernelspec archive name
-   set_fact: kernelspec_archive=jupyter_enterprise_gateway_kernelspecs-{{ notebook.gateway_version }}.tar.gz
+ # - name: set kernelspec archive name
+ #   set_fact: kernelspec_archive=jupyter_enterprise_gateway_kernelspecs-{{ notebook.gateway_version }}.tar.gz
 
  - debug:
-     msg: "Downloading kernelspecs from: {{ notebook.gateway_kernelspec_download_location }}"
+     msg: "Downloading kernelspecs from: {{ notebook.gateway_kernelspec_download_location }}/{{ notebook.gateway_kernelspec_archive }}"
 
  - name: download elyra kernelspecs
-   shell: "curl -L {{ notebook.gateway_kernelspec_download_location }} --output {{ install_temp_dir }}/{{ kernelspec_archive }}"
+   shell: "curl -L {{ notebook.gateway_kernelspec_download_location }}/{{ notebook.gateway_kernelspec_archive }} --output {{ install_temp_dir }}/{{ notebook.gateway_kernelspec_archive }}"
    when: (inventory_hostname in groups['master']) or (notebook.deploy_kernelspecs_to_workers == true)

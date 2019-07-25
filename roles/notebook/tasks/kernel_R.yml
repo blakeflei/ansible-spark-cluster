@@ -13,7 +13,7 @@
 
  - name: install required R packages
    command: >
-     {{rscript}} --slave --no-save --no-restore-history -e "if (! ('{{item}}' %in% installed.packages()[,'Package'])) install.packages(pkgs='{{item}}', repos=c('http://cran.cnr.berkeley.edu/'))"
+     {{notebook_rscript}} --slave --no-save --no-restore-history -e "if (! ('{{item}}' %in% installed.packages()[,'Package'])) install.packages(pkgs='{{item}}', repos=c('http://cran.cnr.berkeley.edu/'))"
    with_items:
    - RCurl
    - devtools
@@ -23,24 +23,24 @@
 
  - name: install IRkernel
    command: >
-     {{rscript}} --slave --no-save --no-restore-history -e "library(devtools)" -e "install_github('IRkernel/repr')" -e "install_github('IRkernel/IRdisplay')" -e "install_github('IRkernel/IRkernel@0.8.14')" -e "IRkernel::installspec(user=FALSE)"
+     {{notebook_rscript}} --slave --no-save --no-restore-history -e "library(devtools)" -e "install_github('IRkernel/repr')" -e "install_github('IRkernel/IRdisplay')" -e "install_github('IRkernel/IRkernel@0.8.14')" -e "IRkernel::installspec(user=FALSE)"
    when: not notebook.use_anaconda
  ########################
 
 
   #### ANACONDA deployment mode
  - name: install Anaconda R binaries
-   shell: "{{ install_dir }}/anaconda/bin/conda install --yes --quiet -c r r-essentials r-irkernel"
+   shell: "{{ install_dir }}/{{ anaconda.anaconda_install_dir }}/bin/conda install --yes --quiet -c r r-essentials r-irkernel"
    when: notebook.use_anaconda
 
-- name: install argparser R package (required by EG 1.x)
+ - name: install argparser R package (required by EG 1.x)
    shell: >
-     {{ install_dir }}/anaconda/bin/Rscript -e 'install.packages("argparser", repos="https://cran.rstudio.com")'
+     {{ install_dir }}/{{ anaconda.anaconda_install_dir }}/bin/Rscript -e 'install.packages("argparser", repos="https://cran.rstudio.com")'
    when: notebook.use_anaconda
 
  - name: install argparse R package
    shell: >
-     {{ install_dir }}/anaconda/bin/Rscript -e 'install.packages("argparse", repos="https://cran.rstudio.com")'
+     {{ install_dir }}/{{ anaconda.anaconda_install_dir }}/bin/Rscript -e 'install.packages("argparse", repos="https://cran.rstudio.com")'
    when: notebook.use_anaconda
   ########################
 
@@ -75,12 +75,22 @@
    when: (inventory_hostname in groups['master']) or (notebook.deploy_kernelspecs_to_workers == true)
 
  - name: update R kernelspec for yarn cluster mode
-   shell: "tar -zxvf {{ install_temp_dir }}/{{ kernelspec_archive }} --strip 1 --directory {{ jupyter_kernelspec_location }}/spark_R_yarn_cluster/ spark_R_yarn_cluster/"
+   unarchive:
+     src: "{{ install_temp_dir }}/{{ notebook.gateway_kernelspec_archive }}"
+     dest: "{{ jupyter_kernelspec_location }}/spark_R_yarn_cluster/"
+     remote_src: yes
+     extra_opts:
+       - "--strip-components=1"
    ignore_errors: yes
    when: (inventory_hostname in groups['master']) or (notebook.deploy_kernelspecs_to_workers == true)
 
  - name: update R kernelspec for for yarn client
-   shell: "tar -zxvf {{ install_temp_dir }}/{{ kernelspec_archive }} --strip 1 --directory {{ jupyter_kernelspec_location }}/spark_R_yarn_client/ spark_R_yarn_client/"
+   unarchive:
+     src: "{{ install_temp_dir }}/{{ notebook.gateway_kernelspec_archive }}"
+     dest: "{{ jupyter_kernelspec_location }}/spark_R_yarn_client/"
+     remote_src: yes
+     extra_opts:
+       - "--strip-components=1"
    ignore_errors: yes
    when: (inventory_hostname in groups['master']) or (notebook.deploy_kernelspecs_to_workers == true)
 

@@ -1,0 +1,85 @@
+# SSH Config, taking care that ssh flows only from master to compute node, not any other way
+
+# /etc/hosts file
+- name: Generate /etc/hosts file
+  template:
+    src: hosts.j2
+    dest: /etc/hosts
+  become: yes
+  become_user: root
+
+# Determenine available users:
+- name: Determine available users
+  getent:
+    database: passwd
+
+#- debug:
+#    msg: "{{ansible_facts.getent_passwd }}"
+#
+#- debug:
+#    msg: "{{ ansible_facts.getent_passwd['ec2-user'][4] }}"
+
+## Cannot become_user for include_tasks, cannot loop for block
+#- name: SSH Config Master
+#  include_tasks: user_config.yml
+#  become: yes
+#  become_user: "{{ item }}"
+#  with_items:
+#    - "{{ default_username }}"
+#    - spark
+#    - hadoop
+#  when: inventory_hostname in groups['master'] and item in ansible_facts.getent_passwd
+#
+#- name: SSH Config Nodes
+#  include_tasks: user_compute.yml
+#  become: yes
+#  become_user: "{{ item }}"
+#  with_items: 
+#    - "{{ default_username }}"
+#    - spark
+#    - hadoop
+#  when: inventory_hostname in groups['nodes'] and item in ansible_facts.getent_passwd
+
+# default_username
+- name: SSH Config Master for default user
+  import_tasks: user_config.yml
+  become: yes
+  become_user: "{{ default_username }}"
+
+# hadoop
+- name: SSH Config Master for hadoop user
+  import_tasks: user_config.yml
+  become: yes
+  become_user: hadoop
+  when: "'hadoop' in ansible_facts.getent_passwd"
+
+# spark
+- name: SSH Config Master for spark user
+  import_tasks: user_config.yml
+  become: yes
+  become_user: spark
+  when: "'spark' in ansible_facts.getent_passwd"
+
+# Set up known_hosts file on all masters
+- name: Make sure the known hosts file exists
+  file: 
+    path: "{{ cluster_network.ssh_known_hosts_file }}"
+    state: touch
+  when: inventory_hostname in groups['master']
+
+- name: Check host name availability
+  shell: "ssh-keygen -f {{ cluster_network.ssh_known_hosts_file }} -F {{ item }}"
+  with_items: "{{  groups['all'] + [ '0.0.0.0' ] }}"
+  register: ssh_known_host_results
+  ignore_errors: yes
+  when: inventory_hostname in groups['master']
+
+  #- debug:
+  #    msg: "ssh_known_host_results is: {{ ssh_known_host_results.results }}"
+  #  when: inventory_hostname in groups['master']
+
+- name: Scan the public key
+  shell: "{{ cluster_network.ssh_known_hosts_command}} {{ item.item }} >> {{ cluster_network.ssh_known_hosts_file }}"
+  with_items: "{{ ssh_known_host_results.results }}"
+  when: inventory_hostname in groups['master'] and item.stdout == "" 
+

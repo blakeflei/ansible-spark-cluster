@@ -7,33 +7,34 @@
 
 - name: remove old temporary install dir
   file: path="{{ install_temp_dir }}" state=absent
+  when: (inventory_hostname in groups['master']) or (notebook.deploy_kernelspecs_to_workers == true)
 
 - name: create temporary install dir
   file: path="{{ install_temp_dir }}" state=directory
   when: (inventory_hostname in groups['master']) or (notebook.deploy_kernelspecs_to_workers == true)
 
 - name: set pip location
-  set_fact: pip={{ install_dir }}/anaconda/bin/pip
+  set_fact: notebook_pip={{ install_dir }}/{{ anaconda.anaconda_install_dir }}/bin/pip
   when: notebook.use_anaconda
 
 - name: set pip location
-  set_fact: pip=pip
+  set_fact: notebook_pip=pip
   when: not notebook.use_anaconda
 
 - name: set jupyter location
-  set_fact: jupyter={{ install_dir }}/anaconda/bin/jupyter
+  set_fact: notebook_jupyter={{ install_dir }}/{{ anaconda.anaconda_install_dir }}/bin/jupyter
   when: notebook.use_anaconda
 
 - name: set jupyter location
-  set_fact: jupyter=jupyter
+  set_fact: notebook_jupyter=jupyter
   when: not notebook.use_anaconda
 
 - name: set RScript location
-  set_fact: rscript={{ install_dir }}/anaconda/bin/RScript
+  set_fact: notebook_rscript={{ install_dir }}/{{ anaconda.anaconda_install_dir }}/bin/RScript
   when: notebook.use_anaconda
 
 - name: set RScript location
-  set_fact: rscript=Rscript
+  set_fact: notebook_rscript=Rscript
   when: not notebook.use_anaconda
 
 - import_tasks: dependencies_os.yml
@@ -52,3 +53,16 @@
   when: (inventory_hostname in groups['master']) or (notebook.deploy_kernelspecs_to_workers == true) 
 
 - import_tasks: kernel_R.yml
+
+- name: restore permissions to anaconda directory
+  file:
+    dest: "{{ install_dir }}/{{ anaconda.anaconda_install_dir }}"
+    owner: root
+    group: anaconda
+    mode: 0775
+    recurse: yes
+  become: yes 
+  become_user: root
+  when: notebook.use_anaconda
+
+

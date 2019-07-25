@@ -1,0 +1,102 @@
+
+- name: set sparkling water fact
+  set_fact: sparkling_water_installed=True
+
+- name: create install directory
+  file:
+    path: "{{ install_dir }}/{{ sparkling_water.sw_install_dir }}"
+    state: directory
+#    owner: "{{ sparkling_water.user }}"
+#    group: "{{ sparkling_water.user }}"
+#  become: true
+
+- debug:
+    msg: "Downloading Sparkling water from: {{ sparkling_water.download_location }}/{{ sparkling_water.sw_archive }}"
+
+- name: download sparkling water
+  get_url: 
+    url: "{{ sparkling_water.download_location }}/{{ sparkling_water.sw_archive }}" 
+    dest: "{{ install_temp_dir }}/{{ sparkling_water.sw_archive }}"
+  register: get_url_result
+  until: get_url_result is succeeded
+  retries: "{{ download_retries }}"
+  delay: 10
+
+- name: unarchive to the install directory
+  unarchive:
+    src: "{{ install_temp_dir }}/{{ sparkling_water.sw_archive }}"
+    dest: "{{ install_dir }}"
+    remote_src: yes
+
+- name: create sparkling-water log location
+  file:
+    path: "{{ install_dir }}/{{ sparkling_water.sw_install_dir }}/logs"
+    state: directory
+#    owner: "{{ sparkling_water.user }}"
+#    group: "{{ sparkling_water.user }}"
+#  become: true
+
+# Configure sparkling water log location. Needs to be made idempotent...
+- name: create sparkling-water-defaults_temp.conf
+  template: 
+    src: "sparkling-water-defaults-conf.j2" 
+    dest: "{{ install_dir}}/{{ spark.spark_install_dir }}/conf/sparkling-water-defaults_temp.conf"
+  become: yes
+  become_user: "{{ spark.user }}"
+
+- name: append sparkling-water-defaults_temp.conf to spark-defaults.conf
+  shell: "cat {{ install_dir}}/{{ spark.spark_install_dir }}/conf/sparkling-water-defaults_temp.conf >> {{ install_dir}}/{{ spark.spark_install_dir }}/conf/spark-defaults.conf"
+  become: yes
+  become_user: "{{ spark.user }}"
+
+- name: delete sparkling-water-defaults temp config
+  file:
+    path: "{{ install_dir}}/{{ spark.spark_install_dir }}/conf/sparkling-water-defaults_temp.conf"
+    state: absent
+
+# Environment setup.
+- name: add sparkling water profile to startup
+  template:
+    src: sparkling-water-profile.sh.j2
+    dest: /etc/profile.d/sparkling-water-profile.sh
+    mode: 0644
+
+- name: Change group and permissions on sparkling water directory
+  file:
+    path: "{{ install_dir }}/{{ sparkling_water.sw_install_dir }}"
+    state: directory
+    recurse: yes
+    group: "{{ spark.user }}"
+    mode: 'g+w'
+
+- name: Change group and permissions on sparkling water log
+  file:
+    path: "{{ install_dir }}/logs/sparkling_water"
+    state: directory
+    recurse: yes
+    group: "{{ spark.user }}" 
+    mode: 'g+w'
+
+# Install prerequisite conda packages for pysparkling
+- name: install pysparkling dependencies
+  shell:
+    conda install -y requests tabulate future colorama
+  become: yes
+  become_user: "{{ default_username }}"
+
+# Remove proxy for pysparkling
+- name: remove proxy http variables from /etc/profile.d/proxy_config.sh
+  replace:
+    path: /etc/profile.d/proxy_config.sh
+    regexp: "(.*{{ proxy_config.proxy_addr }}.*)"
+    replace: '#\1'
+  when: use_sparkling_water|bool and proxy_config.do_proxy|bool
+
+- name: remove proxy variables from ~/.bashrc
+  replace:
+    path: "/home/{{ default_username }}/.bashrc"
+    regexp: "(.*{{ proxy_config.proxy_addr }}.*)"
+    replace: '#\1'
+  when: use_sparkling_water|bool and proxy_config.do_proxy|bool
+
+

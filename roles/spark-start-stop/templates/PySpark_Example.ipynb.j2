@@ -1,0 +1,180 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "#### Author: \\<Author\\>\n",
+    "#### Date: \\<Date\\>\n",
+    "#### Notebook Description:\n",
+    "\n",
+    "This is an initial notebook to get started. It shows the links to the various spark and hadoop file system and contains some initial cluster-specific notebook configuration.\n",
+    "\n",
+    "----------------------------------\n",
+    "\n",
+    "# Cluster Info:\n",
+    "\n",
+    "### Information about hadoop file system (HDFS):\n",
+    "http://{{ hostvars[groups['master'][0]]['ansible_default_ipv4']['address'] }}:50070/\n",
+    "        \n",
+    "### General information about spark cluster:\n",
+    "http://{{ hostvars[groups['master'][0]]['ansible_default_ipv4']['address'] }}:{{ spark.master_ui_port }}/  \n",
+    "\n",
+    "### Detailed information about the spark jobs:  \n",
+    "http://{{ hostvars[groups['master'][0]]['ansible_default_ipv4']['address'] }}:4040\n",
+    "\n",
+    {% if use_sparkling_water|bool %}"### H2O Flow interface:  \n",
+    "http://{{ hostvars[groups['master'][0]]['ansible_default_ipv4']['address'] }}:54321\n",
+    "\n",{% endif %}
+    "### Restart entire spark and hadoop cluster (use as last resort):\n",
+    "!stop-all.sh && stop-dfs.sh && start-dfs.sh && start-all.sh\n",
+    "\n",
+    "# PySpark Docs:\n",
+    "https://spark.apache.org/docs/{{ spark.version }}/api/python/index.html"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Imports\n",
+    "import findspark\n",
+    "findspark.init()\n",
+    "\n",
+    "import numpy as np\n",
+    "import pyspark\n",
+    "from pyspark.conf import SparkConf\n",
+    "from pyspark.sql import *\n",
+    "from pyspark.sql.functions import *"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Configure Spark Session and Connect to Cluster\n",
+    "Set up your application, which will occupy the cluster until you close this notebook or close the spark session."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "metadata": {},
+   "source": [
+    "# Set up the spark session. The cluster will be occupied by this application:\n",
+    "\n",
+    "# Running on {{ groups['nodes'] | length }} instances ({{hostvars[groups['nodes'][0]]['ansible_processor_vcpus'] }} cores {{ hostvars[groups['nodes'][0]]['ansible_memory_mb']['real']['total'] }} MB memory)\n",
+    "compute = {{ groups['nodes'] | length }}\n",
+    "corePhead = {{ hostvars[groups['master'][0]]['ansible_processor_vcpus'] }}\n",
+    "memPhead = {{ hostvars[groups['master'][0]]['ansible_memory_mb']['real']['total'] }}\n",
+    "corePcompute = {{hostvars[groups['nodes'][0]]['ansible_processor_vcpus'] }}\n",
+    "memPcompute = {{ hostvars[groups['nodes'][0]]['ansible_memory_mb']['real']['total'] }}\n",
+    "\n",
+    "driver_cores = str(corePhead-1)\n",
+    "driver_mem = str(int(np.round(memPhead/1000))-1)+'g'\n",
+    "executor_cores = str(corePcompute-1)\n",
+    "executor_mem = str(int(np.round(memPcompute/1000))-3)+'g'\n",
+    "parallelism = str(compute*int(executor_cores))\n",
+    "\n",
+    "spark = SparkSession.builder\\\n",
+    ".appName('JupyterUser') \\\n",
+    ".config(\"spark.driver.memory\", driver_mem) \\\n",
+    ".config(\"spark.driver.cores\", driver_cores)\\\n",
+    ".config(\"spark.driver.maxResultSize\", driver_mem) \\\n",
+    ".config(\"spark.default.parallelism\", parallelism) \\\n",
+    ".config(\"spark.executor.memory\", executor_mem) \\\n",
+    ".config(\"spark.executor.cores\", executor_cores) \\\n",
+    ".config(\"spark.sql.parquet.compression.codec\", \"snappy\") \\\n",
+    ".config(\"spark.shuffle.compress\", \"true\") \\\n",
+    ".config(\"spark.io.compression.codec\", \"snappy\") \\\n",
+    ".config(\"spark.yarn.submit.waitAppCompletion\", \"false\") \\\n",
+    ".config(\"spark.sql.crossJoin.enabled\", \"true\") \\\n",
+    ".config(\"spark.shuffle.registration.timeout\", \"100\") \\\n",
+    ".config(\"spark.sql.shuffle.partitions\", \"1000\") \\\n",
+    ".config(\"spark.network.timeout\", \"100\") \\\n",
+    ".config(\"spark.ui.killEnabled\", \"true\") \\\n",
+    ".getOrCreate()\n",
+    "\n",
+    "print('Spark version is: {}'.format(spark.version))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Load and view data: "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Run terminal aws commands \n",
+    "!aws s3 ls s3://<bucketname>/<key (path)>/"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 6,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Read in parquet data from s3 using compression codec specified in SparkSession above:\n",
+    "data = spark.read.parquet('s3://<bucketname>/<key (path)>/')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "## Slice and view in Pandas\n",
+    "df = data.limit(10).toPandas()   \n",
+    "df.iloc[:4,:6]"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Disconnect from Cluster"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Stop application and free up cluster\n",
+    "spark.stop()"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.7.1"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 2
+}

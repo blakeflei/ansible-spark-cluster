@@ -1,3 +1,5 @@
-export SPARK_HOME={{ install_dir }}/spark-{{ spark.version }}-bin-hadoop{{ spark.hadoop_version }}
+export SPARK_HOME={{ install_dir }}/{{ spark.spark_install_dir }}
 
 export PATH=$SPARK_HOME/bin:$SPARK_HOME/sbin:$PATH
+
+export MASTER="spark://{{ hostvars[groups['master'][0]]['ansible_default_ipv4']['address'] }}:{{ spark.master_port }}"

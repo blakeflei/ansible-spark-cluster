@@ -1,50 +1,62 @@
-#- name: Create service account for Spark
-#  user: name={{ spark.user }}
-#        system=yes
-#        shell={{ spark.user_shell }}
-#        state=present
-#        groups="{{ spark.user_groups | join(',') }}"
+- name: Create service account for Spark
+  user: name={{ spark.user }}
+        system=yes
+        shell={{ spark.user_shell }}
+        state=present
+        groups="{{ spark.user_groups | join(',') }}"
+
+- name: Add "{{ default_username }}" to group spark
+  user:
+    name: "{{ default_username }}"
+    groups: spark
+    append: yes
 
 - name: set spark fact
   set_fact: spark_installed=True
-
-- name: set spark installation path fact
-  set_fact: spark_installation_dir=spark-{{ spark.version }}-bin-hadoop{{ spark.hadoop_version }}
-
-- name: set spark archive fact
-  set_fact: spark_archive=spark-{{ spark.version }}-bin-hadoop{{ spark.hadoop_version }}.tgz
-
-- name: set spark download location fact
-  set_fact: spark_download={{ spark.download_location }}/spark-{{ spark.version }}/{{ spark_archive }}
 
 - name: define number of spark workers
   set_fact: number_of_workers="{{ groups['nodes'] | length | int }}"
 
 - name: create install directory
   file:
-    path: "{{ install_dir }}/{{ spark_installation_dir }}"
+    path: "{{ install_dir }}/{{ spark.spark_install_dir }}"
     state: directory
 #    owner: "{{ spark.user }}"
 #    group: "{{ spark.user }}"
 #  become: true
 
+- name: check for spark stop-all script
+  stat:
+    path: sbin/stop-all.sh
+  register: stop_all
+
 - name: stop spark
   shell: "sbin/stop-all.sh"
   args:
-      chdir: "{{ install_dir}}/{{ spark_installation_dir }}"
+      chdir: "{{ install_dir}}/{{ spark.spark_install_dir }}"
   ignore_errors: yes
-  when: inventory_hostname in groups['master']
-
+  when: inventory_hostname in groups['master'] and
+        stop_all.stat.exists == True
 
 - debug:
-     msg: "Downloading Spark from: {{ spark_download }}"
+     msg: "Downloading Spark from: {{ spark.download_location }}/{{ spark.spark_archive }}"
 
 - name: download spark
-  get_url: url="{{ spark_download }}" dest="{{ install_temp_dir }}/{{ spark_archive }}"
+  get_url: 
+    url: "{{ spark.download_location }}/{{ spark.spark_archive }}" 
+    dest: "{{ install_temp_dir }}/{{ spark.spark_archive }}"
+  register: get_url_result
+  until: get_url_result is succeeded
+  retries: "{{ download_retries }}"
+  delay: 10
 
 - name: unarchive to the install directory
-  shell: "tar -xvf {{ install_temp_dir }}/{{ spark_archive }} --strip 1 --directory {{ install_dir }}/{{ spark_installation_dir }}"
-
+  unarchive:
+    src: "{{ install_temp_dir }}/{{ spark.spark_archive }}"
+    dest: "{{ install_dir }}/{{ spark.spark_install_dir }}"
+    remote_src: yes
+    extra_opts: 
+      - --strip-components=1
 
 - name: create spark working directory
   file:
@@ -55,13 +67,13 @@
 #  become: true
 
 - name: set spark-env.sh
-  template: src="spark-env-sh.j2" dest="{{ install_dir }}/{{ spark_installation_dir }}/conf/spark-env.sh"
+  template: src="spark-env-sh.j2" dest="{{ install_dir }}/{{ spark.spark_install_dir }}/conf/spark-env.sh"
 
 - name: set spark-defaults.conf
-  template: src="spark-defaults-conf.j2" dest="{{ install_dir}}/{{ spark_installation_dir }}/conf/spark-defaults.conf"
+  template: src="spark-defaults-conf.j2" dest="{{ install_dir}}/{{ spark.spark_install_dir }}/conf/spark-defaults.conf"
 
 - name: set slaves
-  template: src="slaves.j2" dest="{{ install_dir}}/{{ spark_installation_dir }}/conf/slaves"
+  template: src="slaves.j2" dest="{{ install_dir}}/{{ spark.spark_install_dir }}/conf/slaves"
 
 # Environment setup.
 - name: add spark profile to startup
@@ -69,3 +81,12 @@
     src: spark-profile.sh.j2
     dest: /etc/profile.d/spark-profile.sh
     mode: 0644
+
+- name: Change group and permissions on spark directory
+  file:
+    path: "{{ install_dir }}/{{ spark.spark_install_dir }}"
+    state: directory
+    recurse: yes
+    group: "{{ default_groupname }}"
+    mode: 'g+w'
+

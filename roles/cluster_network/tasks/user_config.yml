@@ -1,0 +1,25 @@
+---
+#- debug:
+#    msg: "The current user is: {{ lookup('env','USER') }} and home dir is {{ ansible_facts.getent_passwd[lookup('env','USER')][4] }} "
+
+- name: create ssh folder
+  file:
+    path: "{{ ansible_facts.getent_passwd[lookup('env','USER')][4] }}//.ssh/"
+    state: directory
+    mode: 0700
+  become: yes
+  become_user: "{{ lookup('env','USER') }}"
+
+- name: user config
+  template: src="config.j2" dest="{{ ansible_facts.getent_passwd[lookup('env','USER')][4] }}/.ssh/config" mode="600"
+  become: yes
+  become_user: "{{ lookup('env','USER') }}"
+
+- name: add authorized key
+  authorized_key:
+    user: "{{ lookup('env','USER') }}"
+    state: present
+    key: "{{ lookup('file', '{{ ansible_ssh_private_key_file }}.pub') }}"
+  become: yes
+  become_user: "{{ lookup('env','USER') }}"
+

@@ -1,4 +1,4 @@
-export ANACONDA_HOME={{ install_dir }}/anaconda
+export ANACONDA_HOME={{ install_dir }}/{{ anaconda.anaconda_install_dir }}
 
 export PATH=$ANACONDA_HOME/bin:$PATH
 export PYSPARK_PYTHON=$ANACONDA_HOME/bin/python

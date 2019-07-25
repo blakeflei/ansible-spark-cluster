@@ -1,0 +1,10 @@
+[Unit]
+Description=StartSpark
+After=network.target
+
+[Service]
+ExecStart=/opt/bin/spark-start.sh
+Type=oneshot
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,83 @@
+- name: make script directory (default is /opt/bin)
+  file: 
+    path: "{{ install_dir }}/bin"
+    state: directory
+
+- name: make jupyterlab pyspark run directory
+  file:
+    path: "{{ spark_start_stop.spark_rundir }}"
+    owner: ec2-user
+    group: ec2-user
+    state: directory
+
+- name: set jupyter-start.sh
+  template:
+    src: jupyter-start-sh.j2
+    dest: "{{ install_dir }}/bin/jupyter-start.sh"
+    mode: 0544
+
+- name: set h2o-flow-start.sh
+  template:
+    src: h2o-flow-start-sh.j2
+    dest: "{{ install_dir }}/bin/h2o-flow-start.sh"
+    mode: 0544
+
+- name: copy pysparkling as pysparkling-h20flow
+  copy:
+    src: "{{ install_dir }}/{{ sparkling_water.sw_install_dir }}/bin/pysparkling"
+    dest: "{{ install_dir }}/{{ sparkling_water.sw_install_dir }}/bin/pysparkling-starth2oflow"
+    mode: 0555
+
+- name: add line PYTHONSTARTUP="/opt/bin/h2o-start.py" \ just above pysparkling-h20flow
+  lineinfile:
+    path: "{{ install_dir }}/{{ sparkling_water.sw_install_dir }}/bin/pysparkling-starth2oflow"
+    insertbefore: '^pyspark --py-files (.*)$'
+    line: 'PYTHONSTARTUP="/opt/bin/h2o-start.py" \'
+    state: present
+
+- name: set h2o-start.py
+  template:
+    src: h2o-start-py.j2
+    dest: "{{ install_dir }}/bin/h2o-start.py"
+    mode: 0555
+
+- name: set spark-start.sh
+  template: 
+    src: spark-start-sh.j2
+    dest: "{{ install_dir }}/bin/spark-start.sh"
+    mode: 0544
+
+- name: set spark-start.service
+  template: 
+    src: spark-start-service.j2
+    dest: /etc/systemd/system/spark-start.service
+
+- name: Start spark-start
+  service:
+    name: spark-start
+    state: started
+    enabled: yes
+  when: inventory_hostname == groups.master[0]
+
+- name: set spark-stop.sh
+  template: 
+    src: spark-stop-sh.j2
+    dest: "{{ install_dir }}/bin/spark-stop.sh"
+    mode: 0544
+
+- name: set spark-stop.service
+  template: 
+    src: spark-stop-service.j2
+    dest: /etc/systemd/system/spark-stop.service
+
+- name: Copy init pyspark jupyter notebook
+  template:
+    src: PySpark_Example.ipynb.j2
+    dest: "{{ spark_start_stop.spark_rundir }}/PySpark Example.ipynb" 
+
+- name: Start spark-stop
+  service:
+    name: spark-stop
+    state: started
+    enabled: yes
+  when: inventory_hostname == groups.master[0]

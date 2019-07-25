@@ -1,0 +1,153 @@
+# Ansible-specific 
+ansible_connection: ssh
+# Account name of remote user. Ansible will use this user account to ssh into
+# the managed machines. The user must be able to use sudo without asking
+# for password.
+default_username: ec2-user
+default_groupname: ec2-user
+ansible_ssh_private_key_file: ~/.ssh/cluster_key
+gather_facts: True
+gathering: smart
+# Tell ansible not to check host key
+host_key_checking: False
+
+# Installation folders
+install_temp_dir: /tmp/ansible-install
+install_dir: /opt  # Specified here and below for installs
+download_retries: 10
+
+# Common packages
+install_java: True
+
+# Configure cluster to run sparkling water
+use_sparkling_water: True
+
+# Networking
+ca_path:
+  RedHat: /etc/pki/ca-trust/source/anchors
+  Debian: /etc/local/share/ca-certificates
+
+proxy_config:
+  do_proxy: False
+  proxy_addr: "http://proxy:port"
+  awsca_path: "/etc/ssl/certs/ca-bundle.crt"
+  aws_noproxy: "169.254.169.254"
+
+cluster_network:
+  ssh_known_hosts_command: "ssh-keyscan -T 10"
+  #"ssh-keyscan -H -T 10"
+  ssh_known_hosts_file: "/etc/ssh/ssh_known_hosts"
+
+security:
+  enable_kerberos: False
+
+# Role Specific
+common:
+  # Specify java_home location by hand (need to automate):
+  java_major_version: 1.8.0
+  java_minor_version: 1.8.0.212
+  java_home: "/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.212.b04-0.el7_6.x86_64" 
+  #/jre #"/usr/java/jdk1.8.0_201-amd64"
+  #java_version: 8u201
+  #java_package: "java-1.8.0-openjdk-headless-1.8.0.212**"
+  #java_download: "http://download.oracle.com/otn-pub/java/jdk/8u201-b09/42970487e3af4f5aa5bca3f542482c60/jdk-8u201-linux-x64.rpm"
+  #java_jce_download: "http://download.oracle.com/otn-pub/java/jce/8/jce_policy-8.zip"
+
+# Role specific config:
+zookeeper:
+  #version: 3.4.12
+  zookeeper_archive: zookeeper-3.4.12.tar.gz
+  zookeeper_install_dir: zookeeper-3.4.12
+  download_location: https://archive.apache.org/dist/zookeeper/zookeeper-3.4.12
+  data_dir: /var/zookeeper/data
+  user: "zookeeper"       # the name of the (OS)user created for spark
+  #user_groups: ["ec2-user"]             # Optional list of (OS)groups the new spark user should belong to
+  #user_shell: "/bin/false"    # the elasticsearch user's default shell
+
+kafka:
+  #version: 0.11.0.1
+  kafka_archive: kafka_2.11-0.11.0.1.tgz
+  kafka_install_dir: kafka-0.11.0.1
+  download_location: https://archive.apache.org/dist/kafka/0.11.0.1
+  data_dir: /var/kafka
+  user: "kafka"       # the name of the (OS)user created for spark
+  user_groups: ["ec2-user"]             # Optional list of (OS)groups the new spark user should belong to
+  user_shell: "/bin/false"    # the elasticsearch user's default shell
+
+hadoop:
+  #version: 2.9.1
+  hadoop_archive: hadoop-2.9.1.tar.gz
+  hadoop_install_dir: hadoop-2.9.1
+  download_location: https://archive.apache.org/dist/hadoop/common/hadoop-2.9.1
+  data_dir: /data/curruser/hadoop/data #/var/hadoop/data
+  name_dir: /data/curruser/hadoop/name #/var/hadoop/name
+  temp_dir: /tmp/hadoop/hdfs/tmp
+  user: "hadoop"  # the name of the (OS)user created for spark
+  user_groups: ["ec2-user"]  # Optional list of (OS)groups the new spark user should belong to
+  user_shell: "/bin/false" # the hdfs user's default shell
+  portmap_heap: "-Xmx2048m"
+  client_heap: "-Xmx2048m"
+
+spark:
+  version: 2.4.3
+  spark_archive: spark-2.4.3-bin-without-hadoop.tgz
+  spark_install_dir: spark-2.4.3
+  download_location: https://archive.apache.org/dist/spark/spark-2.4.3
+  spark_home: /opt/spark-2.4.3
+  working_dir: /tmp/spark/data
+  master_port: 7077
+  worker_work_port: 65000
+  master_ui_port: 8080
+  worker_ui_port: 8085
+  user: "spark"  # the name of the (OS)user created for spark
+  user_groups: ["ec2-user", "hadoop"]  # Optional list of (OS)groups the new spark user should belong to
+  user_shell: "/bin/false"  # the spark user's default shell
+  env_extras: {}
+  defaults_extras: {} 
+
+elasticsearch:
+  #version: 5.4.1
+  es_archive: elasticsearch-5.4.1.tar.gz
+  es_install_dir: elasticsearch-5.4.1
+  download_location: https://artifacts.elastic.co/downloads/elasticsearch
+  user: "elasticsearch"  # the name of the (OS)user created for spark
+  user_groups: ["ec2-user"]  # Optional list of (OS)groups the new spark user should belong to
+  user_shell: "/bin/false"  # the elasticsearch user's default shell
+
+anaconda:
+  update_path: true
+  anaconda_install_file: Anaconda3-2018.12-Linux-x86_64.sh
+  anaconda_install_dir: anaconda
+  download_location: https://repo.continuum.io/archive
+  group: "anaconda"
+
+spark_start_stop:
+  spark_rundir: /data/curruser/notebooks/
+  env_extras: {}
+  defaults_extras: {}
+
+notebook:
+  gateway_version: 2.0.0b1
+  gateway_kernelspec_download_location: https://github.com/jupyter/enterprise_gateway/releases/download/v2.0.0-beta.1
+  gateway_kernelspec_archive: jupyter_enterprise_gateway_kernelspecs-2.0.0.b1.tar.gz
+  gateway_install_directory: "/opt/gateway"
+  gateway_log_directory: "/opt/gateway/log"
+  gateway_runtime_directory: "/opt/gateway/runtime"
+  toree_archive_package_name: toree-0.3.0.tar.gz
+  toree_pip_download_location: https://dist.apache.org/repos/dist/release/incubator/toree/0.3.0-incubating/toree-pip/
+  yarn_endpoint_host: "{{ groups['master'][0] }}"
+  #"lookup('env', 'SPARK_HOME') | default('/usr/hdp/current/spark2-client', true)"
+  user: gateway
+  home_dir: /home/gateway
+  groups: ["spark", "hadoop", "users", "ec2-user"]
+  deploy_kernelspecs_to_workers: false
+  use_anaconda: true
+
+sparkling_water:
+  version: 2.4.11
+  sw_archive: sparkling-water-2.4.11.zip
+  sw_install_dir: sparkling-water-2.4.11
+  download_location: https://s3.amazonaws.com/h2o-release/sparkling-water/rel-2.4/11  # omit final forward slash
+  env_extras: {}
+  defaults_extras: {'spark.ext.h2o.client.log.dir':"/opt/logs/sparkling-water/client/logs",
+                    'spark.yarn.app.container.log.dir':"/opt/logs/sparkling-water/worker/logs" }

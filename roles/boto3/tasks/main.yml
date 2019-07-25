@@ -1,0 +1,58 @@
+---
+# Install and configure boto3
+# Blake C. Fleischer, 19 March 2019
+
+#- debug:
+#    msg:
+#      - "ca_path = {{ ca_path }}"
+#      - "ansible_os_family = {{ [ansible_os_family] }}"
+#      - "ansible_distribution_major_version|int = {{ [ansible_distribution_major_version|int] }}"
+
+- name: Install python setup tools
+  package:
+    name: '{{ item }}'
+    state: present
+    update_cache: yes
+  loop: 
+    - python-setuptools
+    - device-mapper-libs
+    - device-mapper-event-libs
+   become: yes
+   become_user: root
+
+- name: Create directory /usr/local/bin
+  file: 
+    path: '/usr/local/bin'
+    state: directory
+    mode: 0755
+  become: yes 
+  become_user: root
+
+- name: Configure Python proxy via proxy script
+  command: "/usr/local/bin/proxyfix.py --cert_path {{ ca_path[ansible_os_family] }} --pip --requests"
+  become: yes
+  become_user: root
+  when: proxy_config.do_proxy|bool
+
+- name: Install PyPI for boto and S3 access
+  command: easy_install pip
+  become: yes  
+  become_user: root
+
+- name: Install boto for S3 access
+  pip:
+    executable: pip
+    name: "{{ item }}"
+  loop:
+    - botocore
+    - boto3
+    - certifi
+  become: yes
+  become_user: root
+
+- name: Update certifi for boto libraries
+  command: "/usr/local/bin/proxyfix.py --cert_path {{ ca_path[ansible_os_family] }} --pip --requests"
+  become: yes
+  become_user: root
+  when: proxy_config.do_proxy|bool
+

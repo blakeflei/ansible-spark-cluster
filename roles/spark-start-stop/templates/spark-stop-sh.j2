@@ -1,0 +1,5 @@
+#!/bin/bash
+/sbin/runuser ec2-user -s /bin/bash -l -c \
+  "stop-dfs.sh && \
+  stop-all.sh && \
+  touch /home/ec2-user/spark_stopped.txt"

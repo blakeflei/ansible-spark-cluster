@@ -1,0 +1,7 @@
+#!/bin/bash
+/sbin/runuser ec2-user -s /bin/bash -l -c \
+  "cd {{ spark_start_stop.spark_rundir }} && \
+  screen -S jupyter -dm bash -c '\
+  PYSPARK_DRIVER_PYTHON=\"jupyter\" \
+  PYSPARK_DRIVER_PYTHON_OPTS=\"lab\" \
+  {% if use_sparkling_water|bool %}pysparkling{% else %}jupyter lab{% endif %}'"

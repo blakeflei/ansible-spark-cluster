@@ -1,0 +1,9 @@
+#!/bin/bash
+/sbin/runuser ec2-user -s /bin/bash -l -c \
+  "cd {{ spark_start_stop.spark_rundir }} && \
+  screen -S spark -dm bash -c 'echo \"Sleeping 2 minutes to allow all cluster nodes to boot...\" && \
+  sleep 2m && \
+  start-dfs.sh && \
+  start-all.sh && \
+  {% if use_sparkling_water|bool %}sudo /sbin/runuser root {{ install_dir }}/bin/h2o-flow-start.sh;{% endif %}\
+  sudo /sbin/runuser root {{ install_dir }}/bin/jupyter-start.sh'"

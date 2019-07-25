@@ -15,15 +15,15 @@
      append: yes
 
  - name: create jovyan home folder
-   shell: "sudo -u hdfs hadoop fs -mkdir /user/jovyan"
+   shell: "sudo -u hadoop fs -mkdir /user/jovyan"
    ignore_errors: yes
-   become_user: hdfs
+   become_user: hadoop
    when: (inventory_hostname in groups['master'])
 
  - name: configure jovyan home folder
-   shell: "sudo -u hdfs hadoop fs -chown jovyan:hdfs /user/jovyan"
+   shell: "sudo -u hadoop fs -chown jovyan:hadoop /user/jovyan"
    ignore_errors: yes
-   become_user: hdfs
+   become_user: hadoop
    when: (inventory_hostname in groups['master'])
 
 

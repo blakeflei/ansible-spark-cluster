@@ -1,8 +1,0 @@
-[master]
-lresende-hdp-node-1   ansible_host=9.30.180.27   ansible_host_private=172.16.18.180   ansible_host_id=1
-
-[nodes]
-lresende-hdp-node-2   ansible_host=9.30.180.29   ansible_host_private=172.16.18.182   ansible_host_id=2
-lresende-hdp-node-3   ansible_host=9.30.180.32   ansible_host_private=172.16.18.183   ansible_host_id=3
-lresende-hdp-node-4   ansible_host=9.30.180.34   ansible_host_private=172.16.18.184   ansible_host_id=4
-lresende-hdp-node-5   ansible_host=9.30.180.35   ansible_host_private=172.16.18.185   ansible_host_id=5

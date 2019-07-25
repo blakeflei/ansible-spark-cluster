@@ -3,45 +3,42 @@
   set_fact: elastic_search_installed=True
 
 - name: Create service account for Elasticsearch
-  user: name={{ elasticsearch.user }}
+  user: name="{{ elasticsearch.user }}"
         system=yes
-        shell={{ elasticsearch.user_shell }}
+        shell="{{ elasticsearch.user_shell }}"
         state=present
         groups="{{ elasticsearch.user_groups | join(',') }}"
 
-- name: set elasticsearch installation directory fact
-  set_fact: elasticsearch_installation_dir=elasticsearch-{{ elasticsearch.version }}
-
-- name: set elasticsearch archive fact
-  set_fact: elasticsearch_archive=elasticsearch-{{ elasticsearch.version }}.tar.gz
-
-- name: set elasticsearch download location fact
-  set_fact: elasticsearch_download={{ elasticsearch.download_location }}/{{ elasticsearch_archive }}
-
 - debug:
-     msg: "Downloading ElasticSearch {{ elasticsearch_download }}"
+     msg: "Downloading ElasticSearch {{ elasticsearch.download_location }}/{{ elasticsearch.es_archive }}"
 
 - name: check elasticsearch downloaded
   local_action: >
-    command test -f {{ install_temp_dir }}/{{ elasticsearch_archive }}
+    command test -f {{ install_temp_dir }}/{{ elasticsearch.es_archive }}
   register: elasticsearch_downloaded
   failed_when: elasticsearch_downloaded.rc not in [0, 1]
   changed_when: False
   run_once: true
 
 - name: download elasticsearch
-  get_url: url="{{ elasticsearch_download }}" dest="{{ install_temp_dir }}/{{ elasticsearch_archive }}"
+  get_url: 
+    url: "{{ elasticsearch.download_location }}/{{ elasticsearch.es_archive }}"
+    dest: "{{ install_temp_dir }}/{{ elasticsearch.es_archive }}"
+  register: get_url_result
+  until: get_url_result is succeeded
+  retries: "{{ download_retries }}"
+  delay: 10
   when: elasticsearch_downloaded.rc == 1
   run_once: true
 
 - name: unarchive to the install directory
   unarchive:
-    src: "{{ install_temp_dir }}/{{ elasticsearch_archive }}"
+    src: "{{ install_temp_dir }}/{{ elasticsearch.es_archive }}"
     dest: "{{ install_dir }}"
-    creates: "{{ install_dir }}/{{ elasticsearch_installation_dir }}"
+    creates: "{{ install_dir }}/{{ elasticsearch.es_install_dir }}"
 
 - name: set elasticsearch.yml
-  template: src="elasticsearch.yml.j2" dest="{{ install_dir }}/{{ elasticsearch_installation_dir }}/config/elasticsearch.yml"
+  template: src="elasticsearch.yml.j2" dest="{{ install_dir }}/{{ elasticsearch.es_install_dir }}/config/elasticsearch.yml"
 
 # Environment setup.
 - name: add elasticsearch profile to startup

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
-HOSTS=({% for host in groups['all'] %} {{ host }}.{{ ansible_domain }} {% endfor %})
+HOSTS=({% for host in groups['all'] %} {{ host }} {% endfor %})
 
 for i in ${HOSTS[@]}; do
     ssh root@${i} "$1"
+    ssh {{ default_username}}@${i} "$1"
 done

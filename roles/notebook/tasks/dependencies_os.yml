@@ -1,10 +1,28 @@
+---
+- name: Add epel repository
+  yum_repository:
+    name: epel
+    description: EPEL YUM repo
+    baseurl: https://download.fedoraproject.org/pub/epel/$releasever/$basearch/
 
- - name: enable EPEL repository
-   yum:
-    name: https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
-    state: installed
+- name: install os dependencies
+  yum:
+   name: 
+     - gcc
+     - openssl-devel
+     - libffi-devel 
+     - python-devel
+     - openssl-devel
+     - libcurl
+     - libcurl-devel
+   state: present
 
- - name: install os dependencies
-   yum:
-    name: gcc,openssl-devel,libffi-devel,python-devel,openssl-devel,libcurl,libcurl-devel
-    state: installed
+- name: Remove epel repository
+  yum_repository:
+    name: epel
+    state: absent
+
+- name: yum-clean-metadata
+  command: yum clean metadata
+  args:
+    warn: no

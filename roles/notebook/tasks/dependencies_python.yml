@@ -1,3 +1,6 @@
+ - name: Update certifi for boto libraries
+   command: "/usr/local/bin/proxyfix.py --cert_path {{ ca_path[ansible_os_family] }} --pip --requests"
+   when: proxy_config.do_proxy|bool
 
  - name: install python dependencies
    yum:
@@ -7,10 +10,23 @@
 
  - name: install python packages
    shell: |
-    {{ pip }} install --upgrade pip
-    {{ pip }} install --upgrade ipykernel
+    {{ notebook_pip }} install --upgrade pip
+    {{ notebook_pip }} install --upgrade ipykernel
    when: not notebook.use_anaconda
 
- - name: update python packages
+ - name: Update certifi for boto libraries
+   command: "/usr/local/bin/proxyfix.py --cert_path {{ ca_path[ansible_os_family] }} --pip --requests"
+   when: proxy_config.do_proxy|bool
+
+ - name: update python packages via pip
    shell: |
-    {{ pip }} install --upgrade paramiko
+    {{ notebook_pip }} install --upgrade paramiko
+   when: not notebook.use_anaconda
+
+ - name: update python packages via conda
+   command: "{{ install_dir }}/{{ anaconda.anaconda_install_dir }}/bin/conda install paramiko -y"
+   when: notebook.use_anaconda
+
+ - name: Update certifi for boto libraries
+   command: "/usr/local/bin/proxyfix.py --cert_path {{ ca_path[ansible_os_family] }} --pip --requests"
+   when: proxy_config.do_proxy|bool

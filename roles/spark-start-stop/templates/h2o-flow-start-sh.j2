@@ -1,0 +1,9 @@
+#!/bin/bash
+/sbin/runuser ec2-user -s /bin/bash -l -c \
+  "screen -S h2o-flow -dm bash -c 'pysparkling-starth2oflow'"
+
+
+## Source pysparkling environment
+#source {{ install_dir }}/{{ sparkling_water.sw_install_dir}}/bin/sparkling-env.sh
+#
+#spark-submit --py-files "$PY_ZIP_FILE" {{ install_dir }}/bin/h2o-start.sh

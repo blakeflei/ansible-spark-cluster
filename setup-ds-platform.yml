@@ -1,0 +1,49 @@
+- name: spark setup
+  hosts: all
+  remote_user: ec2-user
+  become: yes
+  become_user: root
+  roles:
+    - role: proxy_config
+    - role: cluster_network
+    - role: common
+    - role: zookeeper
+    - role: kafka
+    - role: hadoop
+    - role: spark
+    - role: spark-cluster-admin
+    - role: elasticsearch
+   
+- name: anaconda
+  hosts: all
+  remote_user: ec2-user
+  become: yes
+  become_user: root
+  roles:
+   - role: anaconda
+
+- name: notebook platform dependencies
+  hosts: all
+  remote_user: ec2-user
+  become: yes
+  become_user: root
+  roles:
+    - role: notebook
+
+- name: sparkling-water
+  hosts: all
+  remote_user: ec2-user
+  become: yes
+  become_user: root
+  roles:
+    - role: sparkling-water
+
+- name: spark hadoop start
+  hosts: all
+  remote_user: ec2-user
+  become: yes
+  become_user: root
+  roles:
+    - role: spark-start-stop
+
+

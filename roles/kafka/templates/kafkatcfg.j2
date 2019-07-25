@@ -1,5 +1,5 @@
 {
-  "kafka_path": "{{ install_dir }}/{{ zookeeper_installation_dir }}",
-  "log_path": "{{ install_dir }}/{{ zookeeper_installation_dir }}/logs",
-  "zk_path": "{{ groups['master'][0] }}.{{ ansible_domain }}:2181"
+  "kafka_path": "{{ install_dir }}/{{ kafka.kafka_install_dir }}",
+  "log_path": "{{ install_dir }}/{{ kafka.kafka_install_dir }}/logs",
+  "zk_path": "{{ groups['master'][0] }}:2181"
 }
