@@ -1,14 +1,20 @@
-This project is a fork of [https://github.com/lresende/ansible-spark-cluster](https://github.com/lresende/ansible-spark-cluster).
+This repository deploys a few different modes of a Spark cluster and Data Science Platform based on Anaconda and Jupyter Notebook stack
 
-This repository defines multiple ansible roles to help deploying different modes of a Spark cluster and
-Data Science Platform based on Anaconda and Jupyter Notebook stack
-
+Changelog from [https://github.com/lresende/ansible-spark-cluster](https://github.com/lresende/ansible-spark-cluster):
+* Uses OpenJDK
+* A single /inventory/hosts/group_vars/all.yml file that does not depend on previous role variables to function
+* Proxy config for http and https proxies (i.e. for those using certificates)
+* Hadoop compiled separately from Spark, providing greater flexibility
+* Preconfigured Jupyter Notebook file with auto generated config to launch sparkContext object appropriately
+* H2O Flow configuration (not compatible with loading in files via S3a, so is selectable)
+* Auto start spark cluster, jupyter lab instance, and optionally, h2o flow when booting headnode, graceful shutdown. Useful for scheduled boot and shutdown when using cloud (i.e. AWS, Google Compute Cloud, Azure).
+ 
 # Requirements
 
 You will need a driver machine with ansible installed and a clone of the current repository:
 
 * If you are running on cloud (public/private network)
-  * Install ansible on the head node (with public ip)
+  * Install ansible on the head node
 
 Additionally:
  - The designated headnodes will need a ssh key titled 'cluster_key'
