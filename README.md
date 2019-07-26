@@ -1,3 +1,4 @@
+This project is a fork of [https://github.com/lresende/ansible-spark-cluster](https://github.com/lresende/ansible-spark-cluster).
 
 This repository defines multiple ansible roles to help deploying different modes of a Spark cluster and
 Data Science Platform based on Anaconda and Jupyter Notebook stack
@@ -7,9 +8,17 @@ Data Science Platform based on Anaconda and Jupyter Notebook stack
 You will need a driver machine with ansible installed and a clone of the current repository:
 
 * If you are running on cloud (public/private network)
-  * Install ansible on the edge node (with public ip)
-* if you are running on private cloud (public network access to all nodes)
-  * Install ansible on your laptop and drive the deployment from it
+  * Install ansible on the head node (with public ip)
+
+Additionally:
+ - The designated headnodes will need a ssh key titled 'cluster_key'
+ - All nodes will need public ssh key 'cluster_key.pub'
+ - All nodes need user ec2-user with sudo permissions
+ - Host inventory is manually specified and located at inventory/hosts
+ - Variables for installation are located at inventory/hosts/group_vars/all.yml
+   - Sparkling water can be turned on or off via ```use_sparkling_water``` variable 
+
+**Software versions and URLs are specified in the variables file**
 
 ### Installing Ansible on RHEL
 
@@ -20,14 +29,6 @@ sudo yum update -y
 sudo yum install -y  ansible
 ```
 
-### Installing Ansible on Mac
-
-* Install Annaconda
-* Use pip install ansible
-
-```
-pip install --upgrade ansible
-```
 
 ### Updating Ansible configuration
 
@@ -54,25 +55,14 @@ Below is a host inventory sample definition:
 
 ```
 [all:vars]
-ansible_connection=ssh
-#ansible_user=root
-#ansible_ssh_private_key_file=~/.ssh/ibm_rsa
-gather_facts=True
-gathering=smart
-host_key_checking=False
-install_java=True
-install_temp_dir=/tmp/ansible-install
-install_dir=/opt
-python_version=2
-
+timeout=3600
 [master]
-lresende-elyra-node-1   ansible_host=IP   ansible_host_private=IP  ansible_host_id=1
+Testh0   ansible_host=<IP>   ansible_host_private=<IP>  ansible_host_id=1
 
 [nodes]
-lresende-elyra-node-2   ansible_host=IP   ansible_host_private=IP  ansible_host_id=2
-lresende-elyra-node-3   ansible_host=IP   ansible_host_private=IP  ansible_host_id=3
-lresende-elyra-node-4   ansible_host=IP   ansible_host_private=IP  ansible_host_id=4
-lresende-elyra-node-5   ansible_host=IP   ansible_host_private=IP  ansible_host_id=5
+Testc0   ansible_host=<IP>   ansible_host_private=<IP>  ansible_host_id=3
+Testc1   ansible_host=<IP>   ansible_host_private=<IP>  ansible_host_id=4
+Testc2   ansible_host=<IP>   ansible_host_private=<IP>  ansible_host_id=5
 
 ```
 
@@ -81,33 +71,13 @@ Some specific configurations are:
 * install_java=True : install/update java 8
 * install_temp_dir=/tmp/ansible-install : temporary folder used for install files
 * install_dir=/opt : where packages are installed (e.g. Spark)
-* python_version=2 : python version to use, influence which version of Anaconda to download
 
 **Note:** ansible_host_id is only used when deploying a "Spark Standalone" cluster.
 **Note:** Ambari is currently only supporting Python 2.x
 
-# Deploying Spark using Ambari and HDP distribution
-
-In this scenario, a minimal blueprint is used to deploy the required components
-to run YARN and Spark.
-
 ### Related ansible roles
 
 * **Common**  Deploys Java and common dependencies
-* **Ambari** Deploys Ambari cluster with HDP Stack
-
-### Deployment playbook
-
-The sample playbook below can be used to deploy an Spark using an HDP distribution
-
-```
-- name: ambari setup
-  hosts: all
-  remote_user: root
-  roles:
-    - role: common
-    - role: ambari
-```
 
 ### Deploying
 
@@ -118,7 +88,7 @@ ansible-playbook --verbose <deployment playbook.yml> -i <hosts inventory>
 Example:
 
 ```
-ansible-playbook --verbose setup-ambari.yml -c paramiko -i hosts-fyre-ambari
+ansible-playbook -i inventory/hosts -c paramiko setup-ds-platform.yml
 ```
 
 # Deploying Spark standalone
@@ -126,81 +96,18 @@ ansible-playbook --verbose setup-ambari.yml -c paramiko -i hosts-fyre-ambari
 In this scenario, a Standalone Spark cluster will be deployed with a few optional components.
 
 ### Related ansible roles
-
+* **proxy_config** Configures for proxy network
+* **cluster_network** Configures networking for cluster
 * **Common**  Deploys Java and common dependencies
-* **HDFS** Deploys HDFS filesystem using slave nodes as data nodes
+* **hadoop** Deploys hadoop in Standalone mode using slave nodes as data nodes
 * **Spark** Deploys Spark in Standalone mode using slave nodes as workers
 * **Spark-CLuster-Admin** Utility scripts for managing Spark cluster
 * **ElasticSearch** Deploy ElasticSearch nodes on all slave nodes
 * **Zookeeper** Depoys Zookeeper on all nodes (required by Kafka)
 * **Kafka** Deploy Kafka nodes on all slave nodes
-
-### Deployment playbook
-
-```
-- name: spark setup
-  hosts: all
-  remote_user: root
-  roles:
-    - role: common
-    - role: hdfs
-    - role: spark
-    - role: spark-cluster-admin
-
-```
-
-**Note:** When deploying Kafka, the Zookeeper role is required
-
-### Deploying
-
-
-```
-ansible-playbook --verbose <deployment playbook.yml> -i <hosts inventory>
-```
-
-Example:
-
-```
-ansible-playbook --verbose setup-spark-standalone.yml -c paramiko -i hosts-fyre-spark
-```
-
-# Deploying Data Science Platform components
-
-In this scenario, an existing Spark cluster is updated with necessary components to build a data science platform
-based on Anaconda and Jupyter Notebook stack.
-
-### Related ansible roles
-
-* **Anaconda** Deploys Anaconda Python distribution on all nodes
-* **Notebook** Deploys Notebook Platform
-
-### Deployment playbook
-
-```
-- name: anaconda
-  hosts: all
-  vars:
-    anaconda:
-      update_path: true
-  remote_user: root
-  roles:
-   - role: anaconda
-
-- name: notebook platform dependencies
-  hosts: all
-  vars:
-    notebook:
-      use_anaconda: true
-      deploy_kernelspecs_to_workers: false
-  remote_user: root
-  roles:
-    - role: notebook
-```
-
-**Playbook Configuration**
-
-* **use_anaconda**: Flag to identify if anaconda is available and should be used as python package manager
-* **deploy_kernelspecs_to_workers**: optionally deploy kernelspecs for Python, R, and Scala to all nodes
+* **Anaconda** Deploys Anaconda Python
+* **Sparkling Water** Deploys h20 and Sparkling Water for Spark
+* **Spark Start Stop** Configures cluster to start Hadoop, Spark, Anaconda, and optionally Sparkling Water
 
 
 # Legal Disclaimers
