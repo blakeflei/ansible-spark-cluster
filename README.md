@@ -2,12 +2,12 @@ This repository deploys a few different modes of a Spark cluster and Data Scienc
 
 Changelog from [https://github.com/lresende/ansible-spark-cluster](https://github.com/lresende/ansible-spark-cluster):
 * Uses OpenJDK
-* A single /inventory/hosts/group_vars/all.yml file that does not depend on previous role variables to function
-* Proxy config for http and https proxies (i.e. for those using certificates)
+* A single `/inventory/hosts/group_vars/all.yml` file that does not depend on previous role variables to function
+* Proxy config for http and https proxies (i.e. for those using certificates). Place cert files (\*.crt) in `roles/proxy_config/files/certs/`
 * Hadoop compiled separately from Spark, providing greater flexibility
 * Preconfigured Jupyter Notebook file with auto generated config to launch sparkContext object appropriately
 * H2O Flow configuration (not compatible with loading in files via S3a, so is selectable)
-* Auto start spark cluster, jupyter lab instance, and optionally, h2o flow when booting headnode, graceful shutdown. Useful for scheduled boot and shutdown when using cloud (i.e. AWS, Google Compute Cloud, Azure).
+* Auto start spark cluster, jupyter lab instance, and optionally, h2o flow when booting headnode, graceful shutdown. Useful for scheduled boot and shutdown when using cloud (i.e. AWS, Google Compute Cloud, Azure)
  
 # Requirements
 
@@ -21,8 +21,8 @@ Additionally:
  - All nodes will need public ssh key 'cluster_key.pub'
  - All nodes need user ec2-user with sudo permissions
  - Host inventory is manually specified and located at inventory/hosts
- - Variables for installation are located at inventory/hosts/group_vars/all.yml
-   - Sparkling water can be turned on or off via ```use_sparkling_water``` variable 
+ - Variables for installation are located at `inventory/hosts/group_vars/all.yml`
+   - Sparkling water can be turned on or off via `use_sparkling_water` variable 
 
 **Software versions and URLs are specified in the variables file**
 
@@ -74,9 +74,9 @@ Testc2   ansible_host=<IP>   ansible_host_private=<IP>  ansible_host_id=5
 
 Some specific configurations are:
 
-* install_java=True : install/update java 8
-* install_temp_dir=/tmp/ansible-install : temporary folder used for install files
-* install_dir=/opt : where packages are installed (e.g. Spark)
+* `install_java=True` : install/update java 8
+* `install_temp_dir=/tmp/ansible-install` : temporary folder used for install files
+* `install_dir=/opt` : where packages are installed (e.g. Spark)
 
 **Note:** ansible_host_id is only used when deploying a "Spark Standalone" cluster.
 **Note:** Ambari is currently only supporting Python 2.x
